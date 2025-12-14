@@ -119,7 +119,7 @@ def build_trainer(model, dataset, tokenizer, args):
         per_device_eval_batch_size=args.eval_batch_size,
         num_train_epochs=args.epochs,
         warmup_ratio=args.warmup_ratio,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",
         logging_strategy="steps",
         logging_steps=50,
         save_strategy="no",
