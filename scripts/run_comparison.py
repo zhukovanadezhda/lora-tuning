@@ -14,8 +14,6 @@ from transformers import (
     Trainer
 )
 
-from peft import get_peft_model, AdapterConfig, TaskType
-
 from scripts.data import load_sst2
 from scripts.metrics import parameter_summary
 from scripts.models.bert_with_lora import apply_lora_to_bert
@@ -56,11 +54,11 @@ def resolve_defaults(args: argparse.Namespace) -> None:
             args.lr = 1e-4
 
     if args.results_path is None:
-        (
+        if args.mode in ("full_ft", "adapter"):
             args.results_path = f"outputs/results/{args.mode}.json"
-            if args.mode == "full_ft" or args.mode == "adapter"
-            else f"outputs/results/lora_r{args.r}.json"
-        )
+        elif args.mode == "lora":
+            args.results_path = f"outputs/results/lora_r{args.r}.json"
+
 
 
 def prepare_output_dirs(args: argparse.Namespace) -> None:
@@ -98,13 +96,12 @@ def build_model(args: argparse.Namespace):
         )
 
     elif args.mode == "adapter":
-        adapter_config = AdapterConfig(
-            task_type=TaskType.SEQ_CLS,
-            reduction_factor=16,
-            non_linearity="relu"
-        )
+        from adapters import AdapterConfig
 
-        model = get_peft_model(model, adapter_config)
+        adapter_config = AdapterConfig.load("houlsby")
+        model.add_adapter("sst2", config=adapter_config)
+        model.train_adapter("sst2")
+        model.set_active_adapters("sst2")
 
     return model
 
@@ -134,7 +131,7 @@ def build_trainer(
         per_device_eval_batch_size=args.eval_batch_size,
         num_train_epochs=args.epochs,
         warmup_ratio=args.warmup_ratio,
-        evaluation_strategy="epoch",
+        eval_strategy="epoch",
         logging_strategy="steps",
         logging_steps=50,
         save_strategy="no",
