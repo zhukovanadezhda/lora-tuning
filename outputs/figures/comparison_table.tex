@@ -1,0 +1,16 @@
+\begin{table}
+\caption{Comparison of fine-tuning strategies on SST-2}
+\label{tab:ft-comparison}
+\begin{tabular}{lrrrr}
+\toprule
+Model & Accuracy & Trainable params & Trainable % & Time (min) \\
+\midrule
+Adapter & 0.870 & 66050 & 0.060 & 9.258 \\
+LoRA (r=1) & 0.915 & 38402 & 0.035 & 8.438 \\
+LoRA (r=2) & 0.911 & 75266 & 0.069 & 8.533 \\
+LoRA (r=4) & 0.908 & 148994 & 0.136 & 8.580 \\
+LoRA (r=8) & 0.914 & 296450 & 0.270 & 8.978 \\
+Full FT & 0.927 & 109483778 & 100.000 & 11.676 \\
+\bottomrule
+\end{tabular}
+\end{table}
