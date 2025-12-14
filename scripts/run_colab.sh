@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo " Running all fine-tuning experiments "
+echo "Running all fine-tuning experiments "
 
 # Move to repo root
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -51,4 +51,4 @@ else
   echo "Skipping adapter (already exists)"
 fi
 
-echo " All experiments completed successfully"
+echo "All experiments completed successfully"
