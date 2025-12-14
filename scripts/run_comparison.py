@@ -14,6 +14,8 @@ from transformers import (
     Trainer
 )
 
+from peft import get_peft_model, AdapterConfig, TaskType
+
 from scripts.data import load_sst2
 from scripts.metrics import parameter_summary
 from scripts.models.bert_with_lora import apply_lora_to_bert
@@ -23,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="Run fine-tuning experiment")
 
-    parser.add_argument("--mode", choices=["full", "lora"], required=True)
+    parser.add_argument("--mode", choices=["full_ft", "lora", "adapter"], required=True)
     parser.add_argument("--model-name", default="bert-base-uncased")
     parser.add_argument("--max-length", type=int, default=128)
 
@@ -46,13 +48,19 @@ def parse_args() -> argparse.Namespace:
 def resolve_defaults(args: argparse.Namespace) -> None:
     """Set default values for arguments based on mode."""
     if args.lr is None:
-        args.lr = 2e-5 if args.mode == "full" else 1e-4
+        if args.mode == "full_ft":
+            args.lr = 2e-5
+        elif args.mode == "lora":
+            args.lr = 1e-4
+        elif args.mode == "adapter":
+            args.lr = 1e-4
 
     if args.results_path is None:
-        if args.mode == "full":
-            args.results_path = "outputs/results/full_ft.json"
-        else:
-            args.results_path = f"outputs/results/lora_r{args.r}.json"
+        (
+            args.results_path = f"outputs/results/{args.mode}.json"
+            if args.mode == "full_ft" or args.mode == "adapter"
+            else f"outputs/results/lora_r{args.r}.json"
+        )
 
 
 def prepare_output_dirs(args: argparse.Namespace) -> None:
@@ -86,8 +94,17 @@ def build_model(args: argparse.Namespace):
             model,
             r=args.r,
             alpha=args.alpha,
-            dropout=args.lora_dropout,
+            dropout=args.lora_dropout
         )
+
+    elif args.mode == "adapter":
+        adapter_config = AdapterConfig(
+            task_type=TaskType.SEQ_CLS,
+            reduction_factor=16,
+            non_linearity="relu"
+        )
+
+        model = get_peft_model(model, adapter_config)
 
     return model
 
@@ -117,9 +134,10 @@ def build_trainer(
         per_device_eval_batch_size=args.eval_batch_size,
         num_train_epochs=args.epochs,
         warmup_ratio=args.warmup_ratio,
-        eval_strategy="epoch",
-        save_strategy="no",
+        evaluation_strategy="epoch",
+        logging_strategy="steps",
         logging_steps=50,
+        save_strategy="no",
         report_to=[]
     )
 
@@ -147,6 +165,7 @@ def run_experiment(
     trainer.train()
     metrics = trainer.evaluate()
     elapsed = time.time() - start
+    log_history = trainer.state.log_history
 
     return {
         "mode": args.mode,
@@ -154,7 +173,8 @@ def run_experiment(
         "metrics": metrics,
         "params": params,
         "elapsed_sec": elapsed,
-        "config": vars(args)
+        "config": vars(args),
+        "log_history": log_history
     }
 
 
