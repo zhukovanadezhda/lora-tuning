@@ -32,7 +32,7 @@ def experiment_label(res: Dict) -> str:
     if mode == "full_ft":
         return "Full FT"
     if mode == "adapter":
-        return "Adapter"
+        return "IA3"
     if mode == "lora":
         return f"LoRA (r={res['config']['r']})"
     return mode
@@ -55,6 +55,7 @@ def build_summary(results: List[Dict]) -> pd.DataFrame:
     df = pd.DataFrame(rows)
 
     def sort_key(row):
+        """Sorting key: full_ft first, then adapter, then LoRA by rank."""
         if row["mode"] == "full_ft":
             return (2, 0)
         if row["mode"] == "adapter":
@@ -85,24 +86,40 @@ def plot_accuracy_vs_params(df: pd.DataFrame, outpath: str):
 
     for _, row in df.iterrows():
         plt.scatter(
-            row["Trainable (%)"],
+            row["Trainable %"],
             row["Accuracy"],
             s=90,
+            zorder=3
         )
+        if row["Model"].strip() == "LoRA (r=8)":
+            xytext=(7, -15)
+        elif row["Model"].strip() == "LoRA (r=16)":
+            xytext=(10, 0)
+        else:
+            xytext=(8, 5)
         plt.annotate(
             row["Model"],
-            (row["Trainable (%)"], row["Accuracy"]),
-            xytext=(6, 4),
+            (row["Trainable %"], row["Accuracy"]),
+            xytext=xytext,
             textcoords="offset points",
-            fontsize=9,
+            fontsize=11,
+            zorder=4
         )
 
     plt.xscale("log")
+    plt.xlim(
+        left=df["Trainable %"].min() * 0.6,
+        right=df["Trainable %"].max() * 3.0
+    )
+    plt.ylim(
+        bottom=df["Accuracy"].min() - 0.003,
+        top=df["Accuracy"].max() + 0.003
+    )
     plt.xlabel("Trainable parameters (%) [log scale]")
     plt.ylabel("Validation accuracy")
     plt.title("Accuracy vs trainable parameters")
 
-    plt.grid(True, which="both", linestyle="--", alpha=0.4)
+    plt.grid(True, which="both", linestyle="--", alpha=0.4, zorder=0)
     plt.tight_layout()
     plt.savefig(outpath)
     plt.close()
@@ -125,13 +142,14 @@ def plot_training_curves(results: List[Dict], outpath: str):
             losses,
             label=experiment_label(r),
             linewidth=2,
-            alpha=0.9
+            alpha=0.9,
+            zorder=2
         )
 
     plt.xlabel("Training step")
     plt.ylabel("Training loss")
     plt.title("Training loss curves")
-    plt.grid(True, linestyle="--", alpha=0.4)
+    plt.grid(True, linestyle="--", alpha=0.4, zorder=0)
     plt.legend()
     plt.tight_layout()
     plt.savefig(outpath)
@@ -144,7 +162,6 @@ def main():
     args = parse_args()
     # Create output directory if it doesn't exist
     os.makedirs(args.out_dir, exist_ok=True)
-
     # Load results from directory
     results = load_results(args.results_dir)
     # Build summary DataFrame
