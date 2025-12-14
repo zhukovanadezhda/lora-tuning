@@ -18,16 +18,15 @@ def apply_lora_to_bert(
     alpha: float = 1.0,
     dropout: float = 0.0
 ) -> BertForSequenceClassification:
-    """
-    Apply LoRA to BERT self-attention layers (query and value projections).
-
-    Args:
-        model  : BertForSequenceClassification
-        r      : LoRA rank
-        alpha  : LoRA scaling factor
-        dropout: dropout on LoRA branch
-
-    Returns:
+    """Apply LoRA to BERT self-attention layers (query and value projections).
+    
+    Args: 
+        model   : BertForSequenceClassification
+        r       : LoRA rank
+        alpha   : LoRA scaling factor
+        dropout : dropout on LoRA branch (paper uses 0.0)
+    
+    Returns: 
         model with LoRA layers injected
     """
 
@@ -36,30 +35,30 @@ def apply_lora_to_bert(
             f"BertForSequenceClassification expected, got {type(model)}"
         )
 
-    # Freeze everything first
+    # Freeze all pretrained parameters
     freeze_model(model)
 
-    # Inject LoRA into each Transformer layer
+    # Inject LoRA into each Transformer block
     for layer in model.bert.encoder.layer:
         attention = layer.attention.self
 
-        # Replace query projection
+        # W_q : query projection
         attention.query = LoRALinear(
             base_layer=attention.query,
             r=r,
             alpha=alpha,
-            dropout=dropout
+            dropout=0.0
         )
 
-        # Replace value projection
+        # W_v : value projection
         attention.value = LoRALinear(
             base_layer=attention.value,
             r=r,
             alpha=alpha,
-            dropout=dropout
+            dropout=0.0
         )
 
-    # Unfreeze classification head
+    # Train the classification head
     for param in model.classifier.parameters():
         param.requires_grad = True
 
